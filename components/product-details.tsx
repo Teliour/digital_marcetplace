@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { Star, ShieldCheck, Clock, ArrowLeft } from "lucide-react"
+import { Star, ShieldCheck, Clock, ArrowLeft, Wallet, CheckCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,15 +12,41 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { Product } from "@/lib/products"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { purchaseProduct } from "@/lib/orders"
 
-export function ProductDetails({ product, user }: { product: Product; user: any | null }) {
+export function ProductDetails({ product, user, balance }: { product: Product; user: any | null; balance: number }) {
   const [quantity, setQuantity] = useState(1)
   const [customerData, setCustomerData] = useState("")
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [purchaseResult, setPurchaseResult] = useState<{ success: boolean; message: string } | null>(null)
+  const router = useRouter()
 
-  const handlePurchase = () => {
+  const totalPrice = product.price * quantity
+  const hasEnoughBalance = balance >= totalPrice
+
+  const handlePurchase = async () => {
+    if (!user || !customerData.trim()) return
+    setIsLoading(true)
+    setPurchaseResult(null)
     setShowPaymentDialog(true)
+
+    const result = await purchaseProduct({
+      buyer_id: user.id,
+      product_id: product.id,
+      seller_id: product.seller_id,
+      customer_data: customerData,
+      amount: totalPrice,
+    })
+
+    if (result.success) {
+      setPurchaseResult({ success: true, message: "Заказ успешно оформлен! Деньги будут переведены продавцу после вашего подтверждения." })
+    } else {
+      setPurchaseResult({ success: false, message: result.error || "Ошибка при оформлении заказа" })
+    }
+    setIsLoading(false)
   }
 
   return (
@@ -40,7 +66,7 @@ export function ProductDetails({ product, user }: { product: Product; user: any 
           <Card>
             <CardContent className="p-0">
               <div className="relative aspect-video overflow-hidden rounded-t-lg">
-                <Image src={product.image || "/placeholder.svg"} alt={product.title} fill className="object-cover" />
+                <Image src={product.image_url || "/placeholder.svg"} alt={product.title} fill className="object-cover" />
                 {product.badge && (
                   <Badge className="absolute left-4 top-4 bg-destructive text-destructive-foreground">
                     {product.badge}
@@ -53,8 +79,8 @@ export function ProductDetails({ product, user }: { product: Product; user: any 
                 <div className="flex items-center gap-4 mb-4">
                   <div className="flex items-center gap-2">
                     <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                    <span className="font-semibold">{product.rating}</span>
-                    <span className="text-muted-foreground">({product.sales.toLocaleString("ru-RU")} отзывов)</span>
+                    <span className="font-semibold">{(product.rating ?? 0).toFixed(1)}</span>
+                    <span className="text-muted-foreground">({(product.sales ?? 0).toLocaleString("ru-RU")} отзывов)</span>
                   </div>
                 </div>
 
@@ -83,7 +109,7 @@ export function ProductDetails({ product, user }: { product: Product; user: any 
                       <Star className="h-8 w-8 text-primary" />
                       <div>
                         <p className="font-semibold">Надежный продавец</p>
-                        <p className="text-xs text-muted-foreground">{product.sales.toLocaleString("ru-RU")}+ продаж</p>
+                        <p className="text-xs text-muted-foreground">{(product.sales ?? 0).toLocaleString("ru-RU")}+ продаж</p>
                       </div>
                     </div>
                   </div>
@@ -100,15 +126,15 @@ export function ProductDetails({ product, user }: { product: Product; user: any 
             <CardContent>
               <div className="flex items-center gap-4">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground text-2xl font-bold">
-                  {product.sellerName.charAt(0).toUpperCase()}
+                  {(product.seller_name || "П").charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <p className="font-semibold text-lg">{product.sellerName}</p>
+                  <p className="font-semibold text-lg">{product.seller_name || "Продавец"}</p>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span>{product.rating} рейтинг</span>
-                    <span>•</span>
-                    <span>{product.sales.toLocaleString("ru-RU")} продаж</span>
+                    <span>{(product.rating ?? 0).toFixed(1)} рейтинг</span>
+                    <span>{'|'}</span>
+                    <span>{(product.sales ?? 0).toLocaleString("ru-RU")} продаж</span>
                   </div>
                 </div>
               </div>
@@ -125,10 +151,22 @@ export function ProductDetails({ product, user }: { product: Product; user: any 
             <CardContent className="space-y-4">
               <div>
                 <div className="flex items-baseline gap-2 mb-2">
-                  <span className="text-4xl font-bold">{product.price * quantity} ₽</span>
+                  <span className="text-4xl font-bold">{totalPrice} ₽</span>
                 </div>
                 <p className="text-sm text-muted-foreground">{product.price} ₽ за единицу</p>
               </div>
+
+              {user && (
+                <div className={`flex items-center gap-2 p-3 rounded-lg ${hasEnoughBalance ? "bg-primary/10" : "bg-destructive/10"}`}>
+                  <Wallet className={`h-5 w-5 ${hasEnoughBalance ? "text-primary" : "text-destructive"}`} />
+                  <div>
+                    <p className="text-sm font-medium">Ваш баланс: {balance.toLocaleString("ru-RU")} ₽</p>
+                    {!hasEnoughBalance && (
+                      <p className="text-xs text-destructive">Недостаточно средств</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <Separator />
 
@@ -189,8 +227,23 @@ export function ProductDetails({ product, user }: { product: Product; user: any 
             </CardContent>
             {user && (
               <CardFooter>
-                <Button className="w-full" size="lg" onClick={handlePurchase} disabled={!customerData}>
-                  Оплатить {product.price * quantity} ₽
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={handlePurchase}
+                  disabled={!customerData.trim() || !hasEnoughBalance || isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Оформление...
+                    </>
+                  ) : (
+                    <>
+                      <Wallet className="mr-2 h-4 w-4" />
+                      Оплатить {totalPrice} ₽
+                    </>
+                  )}
                 </Button>
               </CardFooter>
             )}
@@ -198,24 +251,50 @@ export function ProductDetails({ product, user }: { product: Product; user: any 
         </div>
       </div>
 
-      {/* Payment Dialog */}
-      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+      {/* Purchase Result Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={(open) => {
+        if (!isLoading) {
+          setShowPaymentDialog(open)
+          if (!open && purchaseResult?.success) {
+            router.push("/orders")
+            router.refresh()
+          }
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Оплата</DialogTitle>
-            <DialogDescription>Интеграция платежной системы</DialogDescription>
+            <DialogTitle>{isLoading ? "Оформление заказа" : purchaseResult?.success ? "Заказ оформлен" : "Ошибка"}</DialogTitle>
+            <DialogDescription>
+              {isLoading ? "Пожалуйста, подождите..." : purchaseResult?.success ? "Покупка прошла успешно" : "Не удалось оформить заказ"}
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
-            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-              <Clock className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <p className="text-center text-lg font-semibold">Оплата появится позже</p>
-            <p className="text-center text-sm text-muted-foreground">
-              Функция оплаты находится в разработке. Обычно платежные системы интегрируются специалистами банков.
-            </p>
-            <Button onClick={() => setShowPaymentDialog(false)} className="w-full">
-              Понятно
-            </Button>
+            {isLoading ? (
+              <Loader2 className="h-16 w-16 text-primary animate-spin" />
+            ) : purchaseResult?.success ? (
+              <>
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <CheckCircle className="h-10 w-10 text-primary" />
+                </div>
+                <p className="text-center text-sm text-muted-foreground">{purchaseResult.message}</p>
+                <p className="text-center text-xs text-muted-foreground">
+                  С вашего баланса списано {totalPrice} ₽. Средства удержаны до подтверждения заказа.
+                </p>
+                <Button onClick={() => { setShowPaymentDialog(false); router.push("/orders"); router.refresh() }} className="w-full">
+                  Перейти к заказам
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <Clock className="h-10 w-10 text-destructive" />
+                </div>
+                <p className="text-center text-sm text-destructive font-medium">{purchaseResult?.message}</p>
+                <Button onClick={() => setShowPaymentDialog(false)} className="w-full">
+                  Закрыть
+                </Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

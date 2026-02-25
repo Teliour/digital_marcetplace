@@ -18,7 +18,7 @@ export default async function OrdersPage() {
       <Header user={user} />
       <main className="flex-1">
         <div className="container mx-auto px-4 py-6">
-          <OrdersList orders={orders} />
+          <OrdersList orders={orders} userId={user.id} />
         </div>
       </main>
     </div>

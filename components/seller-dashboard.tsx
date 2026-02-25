@@ -4,10 +4,11 @@ import { useState } from "react"
 import { Plus, Package, Edit, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import type { Product } from "@/lib/products"
+import { deleteProduct, type Product } from "@/lib/products"
 import { CreateProductDialog } from "./create-product-dialog"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
 
 export function SellerDashboard({
   user,
@@ -18,14 +19,20 @@ export function SellerDashboard({
 }) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [products, setProducts] = useState(initialProducts)
+  const { toast } = useToast()
 
   const handleProductCreated = (product: Product) => {
-    setProducts([...products, product])
+    setProducts((prev) => [...prev, product])
   }
 
   const handleDeleteProduct = async (productId: string) => {
-    // In a real app, this would be a server action
-    setProducts(products.filter((p) => p.id !== productId))
+    const result = await deleteProduct(productId)
+    if (result.success) {
+      setProducts((prev) => prev.filter((p) => p.id !== productId))
+      toast({ title: "Товар удален" })
+    } else {
+      toast({ title: "Ошибка", description: result.error, variant: "destructive" })
+    }
   }
 
   return (
@@ -60,7 +67,7 @@ export function SellerDashboard({
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{products.reduce((sum, p) => sum + p.sales, 0)}</div>
+            <div className="text-2xl font-bold">{products.reduce((sum, p) => sum + (p.sales ?? 0), 0)}</div>
           </CardContent>
         </Card>
 
@@ -72,7 +79,7 @@ export function SellerDashboard({
           <CardContent>
             <div className="text-2xl font-bold">
               {products.length > 0
-                ? (products.reduce((sum, p) => sum + p.rating, 0) / products.length).toFixed(1)
+                ? (products.reduce((sum, p) => sum + (p.rating ?? 0), 0) / products.length).toFixed(1)
                 : "0.0"}
             </div>
           </CardContent>
@@ -109,7 +116,7 @@ export function SellerDashboard({
                 >
                   <div className="relative h-20 w-20 rounded overflow-hidden flex-shrink-0">
                     <Image
-                      src={product.image || "/placeholder.svg"}
+                      src={product.image_url || "/placeholder.svg"}
                       alt={product.title}
                       fill
                       className="object-cover"
@@ -128,8 +135,8 @@ export function SellerDashboard({
                     <p className="text-sm text-muted-foreground line-clamp-1 mb-2">{product.description}</p>
                     <div className="flex items-center gap-4 text-sm">
                       <span className="font-bold text-primary">{product.price} ₽</span>
-                      <span className="text-muted-foreground">Рейтинг: {product.rating}</span>
-                      <span className="text-muted-foreground">Продаж: {product.sales}</span>
+                      <span className="text-muted-foreground">Рейтинг: {(product.rating ?? 0).toFixed(1)}</span>
+                      <span className="text-muted-foreground">Продаж: {product.sales ?? 0}</span>
                     </div>
                   </div>
 

@@ -51,26 +51,33 @@ export function CreateProductDialog({
     const badge = formData.get("badge") as string
     const deliveryField = formData.get("deliveryField") as string
 
-    // In a real app, this would be a server action
-    const product = createProduct({
+    const result = await createProduct({
       title,
       description,
       price,
       category,
       badge: badge || undefined,
-      sellerId: user.id,
-      sellerName: user.name,
-      image: imagePreview || "/placeholder.svg?height=400&width=600",
-      deliveryField,
+      seller_id: user.id,
+      image_url: imagePreview || "/placeholder.svg?height=400&width=600",
+      required_field_type: deliveryField,
     })
 
-    toast({
-      title: "Товар создан",
-      description: `${title} успешно добавлен в каталог`,
-    })
+    if (result.success && result.product) {
+      toast({
+        title: "Товар создан",
+        description: `${title} успешно добавлен в каталог`,
+      })
+      onProductCreated(result.product)
+      setImagePreview(null)
+      onOpenChange(false)
+    } else {
+      toast({
+        title: "Ошибка создания товара",
+        description: result.error || "Попробуйте ещё раз",
+        variant: "destructive",
+      })
+    }
 
-    onProductCreated(product)
-    onOpenChange(false)
     setIsLoading(false)
     router.refresh()
   }
@@ -87,7 +94,12 @@ export function CreateProductDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) {
+        setImagePreview(null)
+      }
+      onOpenChange(isOpen)
+    }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Создать новый товар</DialogTitle>

@@ -6,11 +6,14 @@ import { Badge } from "@/components/ui/badge"
 import type { Product } from "@/lib/products"
 
 export function ProductCard({ product }: { product: Product }) {
+  const rating = product.rating ?? 0
+  const sales = product.sales ?? 0
+
   return (
     <Link href={`/product/${product.id}`}>
       <Card className="overflow-hidden transition-shadow hover:shadow-lg">
         <div className="relative aspect-[3/2] overflow-hidden">
-          <Image src={product.image || "/placeholder.svg"} alt={product.title} fill className="object-cover" />
+          <Image src={product.image_url || "/placeholder.svg"} alt={product.title} fill className="object-cover" />
           {product.badge && (
             <Badge className="absolute left-2 top-2 bg-destructive text-destructive-foreground">{product.badge}</Badge>
           )}
@@ -21,16 +24,16 @@ export function ProductCard({ product }: { product: Product }) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-              <span className="font-medium">{product.rating}</span>
+              <span className="font-medium">{rating.toFixed(1)}</span>
             </div>
-            <span>•</span>
-            <span>{product.sales.toLocaleString("ru-RU")} продаж</span>
+            <span>{'|'}</span>
+            <span>{sales.toLocaleString("ru-RU")} продаж</span>
           </div>
         </CardContent>
         <CardFooter className="p-4 pt-0 flex items-center justify-between">
           <div>
             <p className="text-2xl font-bold">{product.price} ₽</p>
-            <p className="text-xs text-muted-foreground">{product.sellerName}</p>
+            <p className="text-xs text-muted-foreground">{product.seller_name}</p>
           </div>
         </CardFooter>
       </Card>

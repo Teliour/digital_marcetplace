@@ -17,6 +17,8 @@ export type Product = {
   is_active: boolean
   created_at?: string
   badge?: string
+  rating: number
+  sales: number
 }
 
 export async function getProducts(): Promise<Product[]> {
@@ -105,6 +107,7 @@ export async function createProduct(productData: {
   required_field_label?: string
   stock_quantity?: number
   seller_id: string
+  badge?: string
 }): Promise<{ success: boolean; error?: string; product?: Product }> {
   const supabase = await createClient()
 
